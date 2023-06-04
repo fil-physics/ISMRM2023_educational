@@ -4,11 +4,18 @@
 % last edit: 01/06/2023
 %
 %% load data 
-% three data sets available for testing (
+% three data sets available for testing
 % all data is unaccelerated 2D EPI
 load('phantom_2DEPI_3T_1slc.mat');
 %load('phantom_2DEPI_7T_1slc.mat');
 %load('brain_2DEPI_7T_1slc.mat');
+
+% The data has the format: RO coils PE "segments", note that odd and even
+% lines are stored in separate segments, the rest of the lines are zeros.
+% Odd and even lines can be combined by adding over segments
+% The navigators have the format: RO coils PE "averages" "segments",
+% there are two "averages" because we acquire the one of the directions
+% twice (three line navigator)
 
 %% 1D regridding to correct for ramp sampling
 % comment out the two lines below if you want to see results with no ramp correction
@@ -17,7 +24,8 @@ navs = rampcorr1D(navs,ramp_up,flat_top,delay,ADCtime);
 
 %% Nyquist ghost correction
 [data_corr , corr_factors_lin] = nyquist_ghostcorr(data, navs);
-data_nocorr = sum(data, 11); % combine odd and even lines (for data_corr this is performed in nyquist_ghostcorr)
+data_corr = sum(data_corr, 4); % combine odd and even lines 
+data_nocorr = sum(data, 4);
 
 %% FFT recon
 im_corr = zeros(size(data_corr)); 

@@ -1,18 +1,14 @@
-function [kdata_corr , allAngle] = nyquist_ghostcorr(kdata, kphasecor) 
+function [data_corr , allAngle] = nyquist_ghostcorr(data, navs) 
 
 %function [kdata_corr , allAngle] = nyquist_ghostcorr(kdata, kphasecor)
 %
 % Nadine N Graedel, n.graedel@ucl.ac.uk - WCHN/UCL 
 % code provided for ISMRM 2023 educational lecture on EPI corrections
-% last edit: 31/05/2023
+% last edit: 04/06/2023
 %
 % The following parameters need to be provided:
-% - kdata: data to be corrected
-% - kphasecor: navigator data
-%
-% Format of the phase correction data: 
-% [200   32   1   150   1   2   1 1   10   1   2 1 1 1 1 1]
-% [nRO nCoil nPE nPart ... nAve ... nMeas ... nSeg  ...   ]
+% - data: data to be corrected
+% - navs: navigator data
 %
 % "Segment 1" contains the data in the odd lines (zeros in even lines) =
 % forward lines 
@@ -24,19 +20,19 @@ average_coils = true; % average correction over coils if desired
 debug_plots   = true; % plot for example coil (coil 1)
 
 disp('Starting phase correction...');  
-kdata_corr = zeros(size(kdata)); % output 
-nCoil   = size(kdata,2);
-nRO     = size(kdata,1);
+data_corr = zeros(size(data)); % output 
+nCoil   = size(data,2);
+nRO     = size(data,1);
 allAngle = zeros(2,nCoil);
     
 % (1) get an estimated phase ramp for each coil
         for iCoil = 1:nCoil
-            tmp_phasecor = kphasecor(:,iCoil,end,1,1,:,1,1,1,1,:); 
+            tmp_phasecor = navs(:,iCoil,:,:); 
             ft_phscor = ifftshift(fft(fftshift(tmp_phasecor,1),[],1),1);
             
             % (1.1) find number of points with signal greater or equal to at least half the maximum
             %signal 
-            ft_phscor_ex = ft_phscor(:,1,1,1,1,1,1,1,1,1); % choose an example phae correction line 
+            ft_phscor_ex = ft_phscor(:,1,1,1); % choose an example phae correction line 
             Nx = round(sum(abs(ft_phscor_ex)./ max(abs(ft_phscor_ex)) > 0.6)/2);
             %define range of points based on that 
             itv = nRO/2+1-Nx:nRO/2+1+Nx;
@@ -44,8 +40,8 @@ allAngle = zeros(2,nCoil);
         
             % (1.2) find which line is reflected (taking the mean is relevant for the
             %one where there are two lines...) 
-            ft_phscor_fwd = squeeze(ft_phscor(:,1,1,1,1,1,1,1,1,1)); % take the odd line 
-            ft_phscor_back = squeeze(mean(ft_phscor(:,1,1,1,1,:,1,1,1,2),6)); % take the mean of the even lines 
+            ft_phscor_fwd = squeeze(ft_phscor(:,1,1,1)); % take the odd line 
+            ft_phscor_back = squeeze(mean(ft_phscor(:,1,:,2),3)); % take the mean of the even lines 
 
             % (1.3) find phase difference (complex division, then taking angle) 
             phs_diff_orig=angle( ft_phscor_fwd.* conj(ft_phscor_back) );
@@ -104,8 +100,8 @@ allAngle = zeros(2,nCoil);
              % one line to meet the other (this is required in TURBINE sampling, otherwise
              % k-space will be asymmetric). For Cartesian 2D/3D EPI this only impacts the image phase
 
-             img_fixtmp=ifftshift(fft(fftshift(kdata(:,iCoil,:,1,:,:,1,1,1,1,2),1),[],1),1); %reverse
-             img_fixtmp2=ifftshift(fft(fftshift(kdata(:,iCoil,:,1,:,:,1,1,1,1,1),1),[],1),1); %forward
+             img_fixtmp=ifftshift(fft(fftshift(data(:,iCoil,:,2),1),[],1),1); %reverse
+             img_fixtmp2=ifftshift(fft(fftshift(data(:,iCoil,:,1),1),[],1),1); %forward
 
              sizeTemp = size(img_fixtmp);
              sizeTemp2 = size(img_fixtmp2);
@@ -120,12 +116,10 @@ allAngle = zeros(2,nCoil);
              img_fixtmp = img_fixtmp.*exp(1i*phs_diffnew/2);
              img_fixtmp2 = img_fixtmp2.*exp(-1i*phs_diffnew2/2);
              
-             kdata_corr(:,iCoil,:,1,:,:,1,1,1,1,2) = ifftshift(ifft(fftshift(img_fixtmp,1),[],1),1);  %reverse 
-             kdata_corr(:,iCoil,:,1,:,:,1,1,1,1,1) = ifftshift(ifft(fftshift(img_fixtmp2,1),[],1),1); %forward
+             data_corr(:,iCoil,:,2) = ifftshift(ifft(fftshift(img_fixtmp,1),[],1),1);  %reverse 
+             data_corr(:,iCoil,:,1) = ifftshift(ifft(fftshift(img_fixtmp2,1),[],1),1); %forward
         end
-        
-% combine odd and even lines of the data       
-kdata_corr = sum(kdata_corr, 11);         
+              
 disp('...completed phase correction.');  
 
 end 
