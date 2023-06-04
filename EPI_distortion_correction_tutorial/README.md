@@ -10,3 +10,5 @@ Add SPM12 and smoothn to your Matlab path.
 
 In files: EPI_DistortionCorrection_Tutorial_SDC_Part1.mlx and EPI_DistortionCorrection_Tutorial_DDC_Part2.mlx 
 under "Section 1 Defining Inputs" specify the folder where the tutorial data are stored and where the binary for romeo is stored.
+
+Data are available via [Zenodo](https://zenodo.org/record/7996527) - please download and unzip.
