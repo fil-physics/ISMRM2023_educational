@@ -10,6 +10,13 @@ function [data_corr , allAngle] = nyquist_ghostcorr(data, navs)
 % - data: data to be corrected
 % - navs: navigator data
 %
+% The data has the format: RO coils PE "segments", note that odd and even
+% lines are stored in separate segments, the rest of the lines are zeros.
+% Odd and even lines can be combined by adding over segments
+% The navigators have the format: RO coils PE "averages" "segments",
+% there are two "averages" because we acquire the one of the directions
+% twice (three line navigator)
+%
 % "Segment 1" contains the data in the odd lines (zeros in even lines) =
 % forward lines 
 % "Segment 2" contains the data in the even lines (zeros in the odd lines)
@@ -18,12 +25,18 @@ function [data_corr , allAngle] = nyquist_ghostcorr(data, navs)
 
 average_coils = true; % average correction over coils if desired
 debug_plots   = true; % plot for example coil (coil 1)
+point_by_point = false; % new point-by-point correction option (no linear assumption)
+if point_by_point == true
+    average_coils = false; 
+    disp('WARNING: No average coil option for point by point phase correction');
+end 
 
 disp('Starting phase correction...');  
 data_corr = zeros(size(data)); % output 
 nCoil   = size(data,2);
 nRO     = size(data,1);
 allAngle = zeros(2,nCoil);
+phs_diff_orig = zeros(nRO,nCoil);
     
 % (1) get an estimated phase ramp for each coil
         for iCoil = 1:nCoil
@@ -44,11 +57,11 @@ allAngle = zeros(2,nCoil);
             ft_phscor_back = squeeze(mean(ft_phscor(:,1,:,2),3)); % take the mean of the even lines 
 
             % (1.3) find phase difference (complex division, then taking angle) 
-            phs_diff_orig=angle( ft_phscor_fwd.* conj(ft_phscor_back) );
+            phs_diff_orig(:,iCoil)=angle( ft_phscor_fwd.* conj(ft_phscor_back) );
             magn_diff = abs(ft_phscor_fwd./ft_phscor_back);
 
             % (1.4) fit phase difference to straight line (polynomial of order 1) 
-            angle_p = polyfit(xidx(itv).',phs_diff_orig(itv),1);
+            angle_p = polyfit(xidx(itv).',phs_diff_orig(itv,iCoil),1);
             allAngle(:,iCoil) = angle_p;
             
             if debug_plots == true && iCoil == 1
@@ -59,14 +72,14 @@ allAngle = zeros(2,nCoil);
                 nexttile; plot(xidx, magn_diff); title('magnitude ratio'); xlabel('samples'); ylabel('magnitude [au]');
                 nexttile; plot(xidx,angle(ft_phscor_fwd)); title('phase'); xlabel('samples'); ylabel('phase [rad]');
                 nexttile; plot(xidx,angle(ft_phscor_back)); title('phase'); xlabel('samples'); ylabel('phase [rad]');
-                nexttile; plot(xidx,phs_diff_orig); title('phase difference'); hold all;  
+                nexttile; plot(xidx,phs_diff_orig(:,iCoil)); title('phase difference'); hold all;  
                           plot(xidx,polyval(angle_p,xidx)); legend('phase diff','linear fit','Location','best'); xlabel('samples'); ylabel('phase [rad]');
                 set(gcf,'color','w');
             end
         end
     
         % (2) Calculate the phase difference
-        if (average_coils == true)
+        if (average_coils == true && point_by_point == false)
             disp('Averaging correction over coils...'); 
             % (2.1) In this case take the average over all coils (excluding
             % outlier coils)
@@ -93,7 +106,12 @@ allAngle = zeros(2,nCoil);
                 phs_diff(:,iCoil) = polyval(allAngle(:,iCoil),xidx).';
             end
         end 
-     
+        
+        % New point-by-point correction option (no linear assumption)
+        if point_by_point == true
+            phs_diff = phs_diff_orig;
+        end 
+
         % (3) Apply the phase correction to the data
         for iCoil = 1:nCoil
              % Move each of forward and reverse lines to meet at the centre rather than

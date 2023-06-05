@@ -1,7 +1,7 @@
 % Demo script Nyquist ghost correction
 % Nadine N Graedel, n.graedel@ucl.ac.uk - WCHN/UCL 
 % code provided for ISMRM 2023 educational lecture on EPI corrections
-% last edit: 01/06/2023
+% last edit: 05/06/2023
 %
 %% load data 
 % three data sets available for testing
@@ -23,9 +23,10 @@ data = rampcorr1D(data,ramp_up,flat_top,delay,ADCtime);
 navs = rampcorr1D(navs,ramp_up,flat_top,delay,ADCtime);
 
 %% Nyquist ghost correction
+% open the nyquist_ghostcorr function to change coil averaging option
 [data_corr , corr_factors_lin] = nyquist_ghostcorr(data, navs);
 data_corr = sum(data_corr, 4); % combine odd and even lines 
-data_nocorr = sum(data, 4);
+data_nocorr = sum(data, 4); % combine odd and even lines
 
 %% FFT recon
 im_corr = zeros(size(data_corr)); 
